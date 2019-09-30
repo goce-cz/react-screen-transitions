@@ -1,20 +1,20 @@
 import React, {
   Children,
   cloneElement,
-  FunctionComponent, isValidElement,
-  ReactElement, ReactNode, useCallback,
+  FunctionComponent,
+  isValidElement,
+  ReactElement,
+  useCallback,
   useEffect,
-  useLayoutEffect, useMemo,
+  useMemo,
   useRef,
   useState
 } from 'react'
 import { RouteDefaultProps, RoutePattern, RouteProps, RouteTransitionState } from './Route'
-import { node } from 'prop-types'
 
-interface OwnProps {
+interface OwnProps extends Partial<RouteDefaultProps> {
   activeRouteName: string
   activeRouteData: any
-  defaults?: RouteDefaultProps
   timeout?: number
 }
 
@@ -32,24 +32,6 @@ const buildAncestorPath = (routeName: string): string[] => {
   return steps.reverse()
 }
 
-enum SwitchState {
-  // no transition in progress
-  IDLE = 'IDLE',
-  // a transition is about to start (initial styles are applied)
-  PREPARATION = 'PREPARATION',
-  // transition is in progress (styles are transforming from the initial to the target ones)
-  TRANSITION = 'TRANSITION'
-}
-
-const pendingStatesByIntentState = new Map([
-  [RouteTransitionState.push, RouteTransitionState.pushing],
-  [RouteTransitionState.stack, RouteTransitionState.stacking],
-  [RouteTransitionState.unstack, RouteTransitionState.unstacking],
-  [RouteTransitionState.pop, RouteTransitionState.popping],
-  [RouteTransitionState.abandon, RouteTransitionState.abandoning],
-  [RouteTransitionState.restore, RouteTransitionState.restoring]
-])
-
 const getIdleState = (routeName: string, activeRouteName: string) => {
   if (routeName === activeRouteName) {
     return RouteTransitionState.head
@@ -58,7 +40,7 @@ const getIdleState = (routeName: string, activeRouteName: string) => {
   }
 }
 
-const getIntentState = (
+const getTransitionState = (
   routeName: string,
   activeRouteName: string,
   previousRouteName: string | null
@@ -68,26 +50,60 @@ const getIntentState = (
     const isDescendantOfCurrent = routeName.startsWith(`${activeRouteName}.`)
 
     if (isDescendantOfCurrent) {
-      return RouteTransitionState.pop
+      return RouteTransitionState.popping
     } else if (isAncestorOfCurrent) {
-      return RouteTransitionState.stack
+      return RouteTransitionState.stacking
     } else {
-      return RouteTransitionState.abandon
+      return RouteTransitionState.abandoning
     }
   } else if (routeName === activeRouteName) {
     const isAncestorOfPrevious = previousRouteName && previousRouteName.startsWith(`${routeName}.`)
     const isDescendantOfPrevious = previousRouteName && routeName.startsWith(`${previousRouteName}.`)
 
     if (isDescendantOfPrevious) {
-      return RouteTransitionState.push
+      return RouteTransitionState.pushing
     } else if (isAncestorOfPrevious) {
-      return RouteTransitionState.unstack
+      return RouteTransitionState.unstacking
     } else {
-      return RouteTransitionState.restore
+      return RouteTransitionState.restoring
     }
   } else {
     return null
   }
+}
+
+export function useUpdatedRef<T> (value: T) {
+  const ref = useRef(value)
+  ref.current = value
+  return ref
+}
+
+interface HistorizedRef<T> {
+  readonly history: T[]
+  current: T
+}
+
+export function useHistorizedRef<T> (maxLength: number, initialValue?: T): HistorizedRef<T> {
+  const ref = useRef<HistorizedRef<T>>()
+  if (!ref.current) {
+    let current = initialValue
+    let history: T[] = initialValue === undefined ? [] : [initialValue]
+    ref.current = {
+      get history () {
+        return history
+      },
+      set current (value: T) {
+        current = value
+        history = history.slice(0, maxLength - 1)
+        history.unshift(value)
+      },
+      get current () {
+        return current
+      }
+    }
+  }
+
+  return ref.current
 }
 
 export const RouteSwitch: FunctionComponent<OwnProps> = (
@@ -95,11 +111,10 @@ export const RouteSwitch: FunctionComponent<OwnProps> = (
     children,
     activeRouteName,
     activeRouteData,
-    defaults,
-    timeout = 3000
+    timeout = 3000,
+    ...defaults
   }
 ) => {
-
   const applicableActiveRouteName = useMemo(
     () => {
       const node = Children
@@ -117,50 +132,29 @@ export const RouteSwitch: FunctionComponent<OwnProps> = (
     [activeRouteName, children]
   )
 
-  const [switchState, setSwitchState] = useState(SwitchState.IDLE)
+  let [transitionInProgress, setTransitionInProgress] = useState(false)
 
   const previousRouteNameRef = useRef<string>(applicableActiveRouteName)
 
-  const activeRouteNameRef = useRef<string>()
-  activeRouteNameRef.current = applicableActiveRouteName
-  const switchStateRef = useRef<SwitchState>()
-  switchStateRef.current = switchState
+  const activeRouteNameRef = useUpdatedRef(applicableActiveRouteName)
 
-  useEffect(
-    () => {
-      console.log('X')
-      if (
-        switchStateRef.current === SwitchState.IDLE &&
-        previousRouteNameRef.current &&
-        applicableActiveRouteName !== previousRouteNameRef.current
-      ) {
-        console.log('A')
-        setSwitchState(SwitchState.PREPARATION)
-      }
-    },
-    [applicableActiveRouteName, switchStateRef]
-  )
+  if (
+    !transitionInProgress &&
+    previousRouteNameRef.current &&
+    applicableActiveRouteName !== previousRouteNameRef.current
+  ) {
+    setTransitionInProgress(true)
+    transitionInProgress = true
+  }
 
-  useLayoutEffect(
-    () => {
-      if (switchState === SwitchState.PREPARATION) {
-        console.log('B')
-        setSwitchState(SwitchState.TRANSITION)
-      }
-    },
-    [switchState]
-  )
-
-  let isIdle = switchState === SwitchState.IDLE
   const animationFinished = useCallback(
     () => {
-      if (!isIdle) {
-        console.log('C')
+      if (transitionInProgress) {
         previousRouteNameRef.current = activeRouteNameRef.current
-        setSwitchState(SwitchState.IDLE)
+        setTransitionInProgress(false)
       }
     },
-    [isIdle]
+    [transitionInProgress]
   )
 
   const timerRef = useRef<number>()
@@ -168,17 +162,18 @@ export const RouteSwitch: FunctionComponent<OwnProps> = (
   useEffect(
     () => {
       let timer
-      if (switchState === SwitchState.TRANSITION) {
+      if (transitionInProgress) {
         timer = window.setTimeout(() => animationFinished(), timeout)
         window.clearTimeout(timerRef.current)
         timerRef.current = timer
       }
     },
-    [switchState, activeRouteNameRef, animationFinished, timeout]
+    [transitionInProgress, activeRouteNameRef, animationFinished, timeout]
   )
   const visitedDataMapRef = useRef(new Map())
   visitedDataMapRef.current.set(applicableActiveRouteName, activeRouteData)
 
+  // TODO Memoize
   const mountedChildren = (() => {
     if (!applicableActiveRouteName) {
       return []
@@ -202,33 +197,30 @@ export const RouteSwitch: FunctionComponent<OwnProps> = (
         )
       )
       .map(item => {
-        const isInTransition = switchState !== SwitchState.IDLE &&
+        const isInTransition = !transitionInProgress &&
           (item.routeName === applicableActiveRouteName || item.routeName === previousRouteNameRef.current)
 
-        const intentOrIdleState: RouteTransitionState =
+        const transitionState: RouteTransitionState =
           isInTransition
-            ? getIntentState(item.routeName, applicableActiveRouteName, previousRouteNameRef.current)
+            ? getTransitionState(item.routeName, applicableActiveRouteName, previousRouteNameRef.current)
             : getIdleState(item.routeName, applicableActiveRouteName)
-
-        const pendingState = pendingStatesByIntentState.get(intentOrIdleState)
 
         return {
           ...item,
-          state: pendingState || intentOrIdleState
+          transitionState
         }
       })
   })()
 
   return (
     <>
-      <div>{switchState} {Date.now()}</div>
+      <div>{transitionInProgress ? 'transition' : 'idle'} {Date.now()}</div>
       {
-        mountedChildren.map(({ element, routeName, routeData, state }) =>
+        mountedChildren.map(({ element, routeData, transitionState }) =>
           cloneElement(element, {
-            routeName,
             routeData,
-            state,
-            key: routeName
+            transitionState,
+            key: element.props.name
           })
         )
       }

@@ -9,8 +9,10 @@ export const Demo: FunctionComponent = () => {
   return (
     <div>
       <div>Current route: {routeName}</div>
-      <RouteSwitch activeRouteName={routeName} activeRouteData={routeData}>
+      <RouteSwitch activeRouteName={routeName} activeRouteData={routeData} keepMounted>
         <Route name='a'>Route A</Route>
+        <Route name='a.1'>Route A.1</Route>
+        <Route name='a.1.x'>Route A.1.X</Route>
         <Route name='b'>Route B</Route>
         <Route name='c' partial>
           <div>
@@ -25,6 +27,8 @@ export const Demo: FunctionComponent = () => {
         </Route>
       </RouteSwitch>
       <button onClick={() => setRouteName('a')}>A</button>
+      <button onClick={() => setRouteName('a.1')}>A.1</button>
+      <button onClick={() => setRouteName('a.1.x')}>A.1.X</button>
       <button onClick={() => setRouteName('b')}>B</button>
       <button onClick={() => setRouteName('c.1')}>C</button>
     </div>

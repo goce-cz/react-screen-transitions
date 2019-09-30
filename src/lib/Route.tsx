@@ -1,35 +1,27 @@
-import React, { FunctionComponent, memo } from 'react'
+import React, { createContext, FunctionComponent, memo, useContext } from 'react'
+import { Selector, useBehaviorSubject, useObservedValue } from './hooks'
+import { identity } from 'rxjs'
 
 export type RoutePattern = string | RegExp
 
-
 export enum RouteTransitionState {
   head = 'head',
-  push = 'push',
-  pushing = 'pushing',
-  stack = 'stack',
-  stacking = 'stacking',
   stacked = 'stacked',
-  unstack = 'unstack',
+  pushing = 'pushing',
+  stacking = 'stacking',
   unstacking = 'unstacking',
-  pop = 'pop',
   popping = 'popping',
-
-  abandon = 'abandon',
   abandoning = 'abandoning',
-
-  restore = 'restore',
   restoring = 'restoring'
 }
 
 export interface MountedRouteProps {
   routeData: any
-  routeName: string
-  state: RouteTransitionState
+  transitionState: RouteTransitionState
 }
 
 export interface RouteInternalProps extends MountedRouteProps {
-  defaults: RouteDefaultProps
+  // defaults: RouteDefaultProps
 }
 
 export interface RouteDefaultProps {
@@ -43,11 +35,34 @@ export interface RouteExternalProps extends RouteDefaultProps {
 
 export type RouteProps = Partial<RouteInternalProps> & RouteExternalProps
 
-export const Route: FunctionComponent<RouteProps> = memo(({ defaults, children, ...props }) => {
-  // const {  } = { ...defaults, ...props }
+const TransitionStateContext = createContext(null)
+const RouteDataContext = createContext(null)
+
+
+export function useRouteData<D,V>(
+  selector: Selector<D,V> = identity as Selector<D,V>,
+  deps: any[]
+) {
+  const routeData$ = useContext(RouteDataContext)
+  return useObservedValue(routeData$, selector, deps)
+}
+
+export function useTransitionState() {
+  const transitionState$ = useContext(TransitionStateContext)
+  return useObservedValue(transitionState$)
+}
+
+export const Route: FunctionComponent<RouteProps> = memo(({ transitionState, routeData, children }) => {
+  const transitionState$ = useBehaviorSubject(transitionState)
+  const routeData$ = useBehaviorSubject(routeData)
   return (
-    <>
-      {children}
-    </>
+    <div>
+      <div>{transitionState}</div>
+      <TransitionStateContext.Provider value={transitionState$}>
+        <RouteDataContext.Provider value={routeData$}>
+          {children}
+        </RouteDataContext.Provider>
+      </TransitionStateContext.Provider>
+    </div>
   )
 })
