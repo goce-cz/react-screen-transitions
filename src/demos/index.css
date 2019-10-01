@@ -11,3 +11,84 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+.flexColumn {
+    display: flex;
+    flex-direction: column;
+}
+
+.fitParent, .screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+}
+
+.container {
+    position: relative;
+    flex: 1;
+}
+
+.pushing {
+    transform: translateX(100%);
+    transition: transform 3000ms ease;
+    z-index: 1;
+}
+
+.pushing.start {
+    transform: translateX(0);
+}
+
+.popping {
+    transform: translateX(0);
+    transition: transform 3000ms ease;
+    z-index: 1;
+}
+
+.popping.start {
+    transform: translateX(100%);
+}
+
+.stacking {
+    transform: translateX(0);
+    transition: transform 3000ms ease;
+}
+
+.stacking.start {
+    transform: translateX(-50%);
+}
+
+.unstacking {
+    transform: translateX(-50%);
+    transition: transform 3000ms ease;
+}
+
+.unstacking.start {
+    transform: translateX(0);
+}
+
+
+.abandoning {
+    transform: translateY(0);
+    transition: transform 3000ms ease;
+}
+
+.abandoning.start {
+    transform: translateY(-50%);
+}
+
+.restoring {
+    transform: translateY(100%);
+    transition: transform 3000ms ease;
+    z-index: 1;
+}
+
+.restoring.start {
+    transform: translateY(0);
+}
+
+
+.stacked {
+    display: none;
+}
