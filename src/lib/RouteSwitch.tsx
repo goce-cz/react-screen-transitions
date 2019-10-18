@@ -2,29 +2,17 @@ import React, {
   Children,
   cloneElement,
   FunctionComponent,
-  isValidElement,
-  ReactElement, ReactNode,
+  ReactElement,
+  ReactNode,
   useCallback,
-  useEffect, useMemo,
+  useEffect,
+  useMemo,
   useRef,
   useState
 } from 'react'
-import { isValidRouteDefinition, RouteDefaultProps, RouteProps, RouteTransitionState } from './Route'
+import { isValidRouteDefinition } from './Route'
 import { BehaviorSubject } from 'rxjs'
-
-export interface RouteState<D> {
-  name: string
-  data: D
-}
-
-export interface RouteSwitchSettings extends Partial<RouteDefaultProps> {
-  timeout?: number
-  children: Array<ReactElement<RouteProps>>
-}
-
-interface OwnProps extends RouteSwitchSettings {
-  activeRoute$: BehaviorSubject<RouteState<any>>
-}
+import { RouteProps, RouteState, RouteSwitchProps, RouteTransitionState } from './model'
 
 const getIdleState = (routeName: string, activeRouteName: string) => {
   if (routeName === activeRouteName) {
@@ -83,12 +71,12 @@ const findDefinedRouteName = (realRouteName: string, children: ReactNode) => {
 }
 
 function useCurrentRouteStatus<D> (
-  activeRoute$: BehaviorSubject<RouteState<D>>,
+  routeState$: BehaviorSubject<RouteState>,
   children: ReactNode,
   onToggleTransitionInProgress: (value: boolean) => void
 ): [string, string, Map<string, D>] {
   const [activeRouteName, setActiveRouteName] = useState<string>(() => {
-    const routeState = activeRoute$.getValue()
+    const routeState = routeState$.getValue()
     return routeState && findDefinedRouteName(routeState.name, children)
   })
   const [previousRouteName, setPreviousRouteName] = useState<string>(null)
@@ -97,9 +85,9 @@ function useCurrentRouteStatus<D> (
 
   useEffect(
     () => {
-      const subscription = activeRoute$.subscribe({
-        next: ({ name, data }) => {
-          const definedRouteName = findDefinedRouteName(name, children)
+      const subscription = routeState$.subscribe({
+        next: routeState => {
+          const definedRouteName = findDefinedRouteName(routeState.name, children)
           if (!definedRouteName) {
             setActiveRouteName(null)
             return
@@ -110,18 +98,19 @@ function useCurrentRouteStatus<D> (
               onToggleTransitionInProgress(true)
             }
             setPreviousRouteName(lastActiveRouteNameRef.current)
-            setActiveRouteName(name)
+            setActiveRouteName(routeState.name)
             lastActiveRouteNameRef.current = definedRouteName
           }
 
           if (lastActiveRouteNameRef.current === definedRouteName) {
-            setDataMap(map => new Map(map).set(definedRouteName, data))
+            // TODO Clean the abandoned or popped routes
+            setDataMap(map => new Map(map).set(definedRouteName, routeState))
           }
         }
       })
       return () => subscription && subscription.unsubscribe()
     },
-    [activeRoute$, children, onToggleTransitionInProgress]
+    [routeState$, children, onToggleTransitionInProgress]
   )
 
   return [activeRouteName, previousRouteName, dataMap]
@@ -129,16 +118,16 @@ function useCurrentRouteStatus<D> (
 
 const isAncestorRoute = (ancestor: string, descendant: string) => descendant.startsWith(`${ancestor}.`)
 
-export const RouteSwitch: FunctionComponent<OwnProps> = (
+export const RouteSwitch: FunctionComponent<RouteSwitchProps> = (
   {
     children,
-    activeRoute$,
+    routeState$,
     timeout = 6000,
     keepMounted
   }
 ) => {
   const [transitionInProgress, setTransitionInProgress] = useState(false)
-  const [activeRouteName, previousRouteName, dataMap] = useCurrentRouteStatus(activeRoute$, children, setTransitionInProgress)
+  const [activeRouteName, previousRouteName, dataMap] = useCurrentRouteStatus(routeState$, children, setTransitionInProgress)
 
   const timerRef = useRef<number>()
 
@@ -178,18 +167,18 @@ export const RouteSwitch: FunctionComponent<OwnProps> = (
             .map(element => ({
               element,
               props: { ...defaults, ...element.props },
-              routeData: dataMap.get(element.props.name)
+              routeState: dataMap.get(element.props.name)
             }))
-            .filter(({ element, props: { keepMounted }, routeData }) => {
+            .filter(({ element, props: { keepMounted }, routeState }) => {
               const routeName = element.props.name
-              return routeData &&
+              return routeState &&
                 (
                   routeName === activeRouteName ||
                   (routeName === previousRouteName && transitionInProgress) ||
                   (keepMounted && isAncestorRoute(routeName, activeRouteName))
                 )
             })
-            .map(({ element, props, routeData }) => {
+            .map(({ element, props, routeState }) => {
               const routeName = element.props.name
               const isInTransition = transitionInProgress &&
                 (routeName === activeRouteName || routeName === previousRouteName)
@@ -201,7 +190,7 @@ export const RouteSwitch: FunctionComponent<OwnProps> = (
 
               return cloneElement(element, {
                 ...props,
-                routeData,
+                routeState,
                 transitionState,
                 transitionFrom: isInTransition ? previousRouteName : null,
                 transitionTo: isInTransition ? activeRouteName : null,

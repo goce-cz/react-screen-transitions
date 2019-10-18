@@ -1,9 +1,7 @@
 import React, { FunctionComponent, useMemo, useRef, useState } from 'react'
-import { Route, RouteSwitch } from '../lib'
 
-import './index.css'
-import { useObservableRouteState } from '../lib/Route'
-import { CssRouteAnimation } from '../lib/CssRouteAnimation'
+import './demo.css'
+import { CssRouteAnimation, NestedRouteSwitch, Route, RouteSwitch, useBehaviorSubject, RouteState } from 'react-screen-transitions'
 
 const defaultAnimations = {
   stacked: 'stacked',
@@ -84,26 +82,26 @@ const Screen: FunctionComponent<ScreenProps> = ({ className, ...props }) => {
 
 export const Demo: FunctionComponent = () => {
   const [routeName, setRouteName] = useState('a')
-  const routeData = useMemo(() => ({ name: routeName, params: { something: `DATA<${routeName}>` } }), [routeName])
+  const routeData = useMemo(() => ({ name: routeName, params: { something: `DATA<${routeName}>` } }) as RouteState, [routeName])
 
-  const activeRouteState$ = useObservableRouteState(routeName, routeData)
+  const activeRouteState$ = useBehaviorSubject(routeData)
   return useMemo(
     () => {
       return (
         <div className='fitParent flexColumn'>
           <div className='container'>
-            <RouteSwitch activeRoute$={activeRouteState$} keepMounted>
+            <RouteSwitch routeState$={activeRouteState$} keepMounted>
               <Route name='a'><Screen>Route A</Screen></Route>
               <Route name='a.1'><Screen> Route A.1 {Date.now()}</Screen></Route>
               <Route name='a.1.x'><Screen>Route A.1.X</Screen></Route>
               <Route name='b'><Screen>Route B</Screen></Route>
               <Route name='c' partial><Screen className='flexColumn'>
                 <div className='container'>
-                  <RouteSwitch activeRoute$={activeRouteState$}>
+                  <NestedRouteSwitch>
                     <Route name='c.1' keepMounted><Screen>Route C.1</Screen></Route>
                     <Route name='c.1.x'><Screen>Route C.1.X</Screen></Route>
                     <Route name='c.2'><Screen>Route C.2</Screen></Route>
-                  </RouteSwitch>
+                  </NestedRouteSwitch>
                 </div>
                 <button onClick={() => setRouteName('c.1')}>C.1</button>
                 <button onClick={() => setRouteName('c.1.x')}>C.1.X</button>

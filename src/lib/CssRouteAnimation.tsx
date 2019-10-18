@@ -1,7 +1,8 @@
 import React, { FunctionComponent, HTMLAttributes, memo, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 
-import { RouteTransitionDetails, RouteTransitionState, useTransitionDetails$ } from './Route'
 import { isRouteMatching } from './RouteSwitch'
+import { useTransitionDetails$ } from './hooks'
+import { RouteTransitionDetails, RouteTransitionState } from './model'
 
 export interface CssAnimationConfig {
   pushing?: string
@@ -46,7 +47,6 @@ export const CssRouteAnimation: FunctionComponent<CssRouteAnimationProps> = memo
       const expectedClasses = [
         className,
         dynamicClassName
-        // !triggerAnimation && inTransition && dynamicClassName && startClassName
       ].filter(Boolean)
 
       const htmlElement = domRef.current

@@ -1,7 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom'
-import { Demo } from './demos'
-import { initializeDiagnostics } from './lib/diagnostics'
+import { Demo } from './Demo'
+import { initializeDiagnostics } from './diagnostics'
 
 initializeDiagnostics()
 
