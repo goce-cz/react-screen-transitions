@@ -1,7 +1,7 @@
 /**/node_modules
 /.idea
 
-/dist
+/**/dist
 
 yarn-debug.log*
 yarn-error.log*
