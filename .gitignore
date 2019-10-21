@@ -3,6 +3,7 @@
 
 /**/dist
 /**/.yalc
+/**/yalc.lock
 
 yarn-debug.log*
 yarn-error.log*
