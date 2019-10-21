@@ -17,7 +17,8 @@
     "typescript": "3.6.3"
   },
   "scripts": {
-    "build": "tsc --project tsconfig.json"
+    "build": "tsc --project tsconfig.json",
+    "watch": "tsc -w --project tsconfig.json"
   },
   "main": "dist/index.js",
   "module": "dist/index.js",

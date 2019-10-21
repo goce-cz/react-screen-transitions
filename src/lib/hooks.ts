@@ -1,5 +1,6 @@
 import {
   createContext,
+  RefObject,
   useCallback,
   useContext,
   useEffect,
@@ -7,6 +8,7 @@ import {
   useState
 } from 'react'
 import { BehaviorSubject, identity } from 'rxjs'
+
 import { RouteState, RouteTransitionDetails, RouteTransitionState } from './model'
 
 export const TransitionDetailsContext = createContext<BehaviorSubject<RouteTransitionDetails>>(null)
@@ -56,11 +58,9 @@ function useSingleton<T> (factory: () => T): T {
   return instanceRef.current
 }
 
-type EqualityFunction<T> = (a: T, b: T) => boolean
-
-export function useBehaviorSubject<T> (currentValue: T, valuesEqual: EqualityFunction<T> = (a, b) => a === b): BehaviorSubject<T> {
+export function useBehaviorSubject<T> (currentValue: T): BehaviorSubject<T> {
   const value$ = useSingleton(() => new BehaviorSubject(currentValue))
-  if (!valuesEqual(value$.getValue(), currentValue)) {
+  if (value$.getValue() !== currentValue) {
     value$.next(currentValue)
   }
   return value$
@@ -91,4 +91,29 @@ export function useTransitionDetails$ (): BehaviorSubject<RouteTransitionDetails
 export function useTransitionDetails (): RouteTransitionDetails {
   const transitionState$ = useContext(TransitionDetailsContext)
   return useObservedValue(transitionState$)
+}
+
+type EqualityFunction<T> = (a: T, b: T) => boolean
+
+export function useTheSameObject<T> (object: T, equalityFnc: EqualityFunction<T>) {
+  const lastObject = useRef<T>()
+  const prev = lastObject.current
+  if (
+    (
+      (prev == null) !== (object == null)
+    ) ||
+    (
+      prev !== object &&
+      !equalityFnc(prev, object)
+    )
+  ) {
+    lastObject.current = object
+  }
+  return lastObject.current
+}
+
+export function useCapture<T> (value: T): RefObject<T> {
+  const ref = useRef<T>()
+  ref.current = value
+  return ref
 }

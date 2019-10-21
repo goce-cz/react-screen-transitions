@@ -1,16 +1,26 @@
 import React, { FunctionComponent, useMemo, useRef, useState } from 'react'
+import {
+  CssRouteAnimation,
+  NestedRouteSwitch,
+  Route,
+  RouteSwitch,
+  useBehaviorSubject,
+  RouteState,
+  CssRouteAnimationProps,
+  CarouselAnimation
+} from 'react-screen-transitions'
 
 import './demo.css'
-import { CssRouteAnimation, NestedRouteSwitch, Route, RouteSwitch, useBehaviorSubject, RouteState } from 'react-screen-transitions'
+import { CarouselAnimationProps } from '../../src/lib'
 
 const defaultAnimations = {
-  stacked: 'stacked',
-  pushing: 'pushing',
-  popping: 'popping',
-  stacking: 'stacking',
-  unstacking: 'unstacking',
-  abandoning: 'abandoning',
-  restoring: 'restoring'
+  stacked: 'hidden',
+  pushing: 'slideInLeft',
+  popping: 'slideOutRight',
+  stacking: 'halfSlideOutLeft',
+  unstacking: 'halfSlideInRight',
+  abandoning: 'halfSlideOutUp',
+  restoring: 'slideInUp'
 }
 
 function rainbow (numOfSteps: number, step: number) {
@@ -58,7 +68,7 @@ function rainbow (numOfSteps: number, step: number) {
   return (c)
 }
 
-interface ScreenProps {
+interface ScreenProps extends Partial<CssRouteAnimationProps> {
   className?: string
 }
 
@@ -80,6 +90,30 @@ const Screen: FunctionComponent<ScreenProps> = ({ className, ...props }) => {
   )
 }
 
+const PATTERN_ORDER = ['b','b.1', 'b.2']
+
+const CarouselScreen: FunctionComponent<Partial<CarouselAnimationProps>> = ({ patternOrder, ...props }) => {
+  const rainbowIndex = useRef<number>()
+  if (rainbowIndex.current == null) {
+    rainbowIndex.current = rainbowCount++
+  }
+  return (
+    <CarouselAnimation
+      style={{ background: rainbow(10, rainbowIndex.current) }}
+      startClassName='start'
+      patternOrder={patternOrder}
+      defaultAnimations={defaultAnimations}
+      className='screen'
+      slideOutLeft='slideOutLeft'
+      slideOutRight='slideOutRight'
+      slideInLeft='slideInLeft'
+      slideInRight='slideInRight'
+      {...props}
+    />
+  )
+}
+
+
 export const Demo: FunctionComponent = () => {
   const [routeName, setRouteName] = useState('a')
   const routeData = useMemo(() => ({ name: routeName, params: { something: `DATA<${routeName}>` } }) as RouteState, [routeName])
@@ -91,16 +125,43 @@ export const Demo: FunctionComponent = () => {
         <div className='fitParent flexColumn'>
           <div className='container'>
             <RouteSwitch routeState$={activeRouteState$} keepMounted>
-              <Route name='a'><Screen>Route A</Screen></Route>
-              <Route name='a.1'><Screen> Route A.1 {Date.now()}</Screen></Route>
-              <Route name='a.1.x'><Screen>Route A.1.X</Screen></Route>
-              <Route name='b'><Screen>Route B</Screen></Route>
-              <Route name='c' partial><Screen className='flexColumn'>
+              <Route pattern='a'><Screen
+                whenLeavingTo={{
+                  'c*': { className: 'shrink', propertyName: 'transform' }
+                }}
+                whenEnteringFrom={{
+                  'c*': { className: 'fill', propertyName: 'transform' }
+                }}
+              >Route A</Screen></Route>
+              <Route pattern='a.1'><Screen>Route A.1 {Date.now()}</Screen></Route>
+              <Route pattern='a.1.x'><Screen>Route A.1.X</Screen></Route>
+              <Route pattern='b*'>
+                <Screen className='flexColumn'>
+                  <div className='container'>
+                    <NestedRouteSwitch>
+                      <Route pattern='b'><CarouselScreen patternOrder={PATTERN_ORDER}>Route B</CarouselScreen></Route>
+                      <Route pattern='b.1'><CarouselScreen patternOrder={PATTERN_ORDER}>Route B.1</CarouselScreen></Route>
+                      <Route pattern='b.2'><CarouselScreen patternOrder={PATTERN_ORDER}>Route B.2</CarouselScreen></Route>
+                    </NestedRouteSwitch>
+                  </div>
+                  <button onClick={() => setRouteName('b.1')}>B.1</button>
+                  <button onClick={() => setRouteName('b.2')}>B.2</button>
+                </Screen>
+              </Route>
+              <Route pattern='c*'><Screen
+                className='flexColumn'
+                whenLeavingTo={{
+                  'a*': { className: 'shrink', propertyName: 'transform' }
+                }}
+                whenEnteringFrom={{
+                  'a*': { className: 'fill', propertyName: 'transform' }
+                }}
+              >
                 <div className='container'>
                   <NestedRouteSwitch>
-                    <Route name='c.1' keepMounted><Screen>Route C.1</Screen></Route>
-                    <Route name='c.1.x'><Screen>Route C.1.X</Screen></Route>
-                    <Route name='c.2'><Screen>Route C.2</Screen></Route>
+                    <Route pattern='c.1' keepMounted><Screen>Route C.1</Screen></Route>
+                    <Route pattern='c.1.x'><Screen>Route C.1.X</Screen></Route>
+                    <Route pattern='c.2'><Screen>Route C.2</Screen></Route>
                   </NestedRouteSwitch>
                 </div>
                 <button onClick={() => setRouteName('c.1')}>C.1</button>

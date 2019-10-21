@@ -1,49 +1,125 @@
-import React, { FunctionComponent, HTMLAttributes, memo, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
+import React, {
+  FunctionComponent,
+  HTMLAttributes,
+  memo,
+  TransitionEventHandler,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef
+} from 'react'
 
 import { isRouteMatching } from './RouteSwitch'
 import { useTransitionDetails$ } from './hooks'
 import { RouteTransitionDetails, RouteTransitionState } from './model'
 
-export interface CssAnimationConfig {
-  pushing?: string
-  popping?: string
-  stacking?: string
-  unstacking?: string
-  abandoning?: string
-  restoring?: string
+export interface ComplexAnimation {
+  className: string
+  propertyName?: string
 }
 
-export interface CssPerRouteAnimationConfig extends CssAnimationConfig {
-  name: string
-  partial?: boolean
+export type CssAnimation = string | ComplexAnimation
+
+export interface DefaultAnimationsConfig {
+  pushing?: CssAnimation
+  popping?: CssAnimation
+  stacking?: CssAnimation
+  unstacking?: CssAnimation
+  abandoning?: CssAnimation
+  restoring?: CssAnimation
 }
+
+export interface PerPatternAnimationConfigs {
+  [routeName: string]: CssAnimation
+}
+
+export type PerPatternAnimationCallback = (routePattern: string, transitionDetails: RouteTransitionDetails) => CssAnimation
 
 export interface CssRouteAnimationProps extends HTMLAttributes<HTMLElement> {
   element?: keyof JSX.IntrinsicElements
-  defaultAnimations: CssAnimationConfig
-  perRouteAnimations?: CssPerRouteAnimationConfig[]
+  defaultAnimations: DefaultAnimationsConfig
+  whenLeavingTo?: PerPatternAnimationConfigs | PerPatternAnimationCallback
+  whenEnteringFrom?: PerPatternAnimationConfigs | PerPatternAnimationCallback
   startClassName?: string
+  ignoreTransitionEnd?: boolean
 }
 
-export const CssRouteAnimation: FunctionComponent<CssRouteAnimationProps> = memo(({ element = 'div', className, startClassName, defaultAnimations, perRouteAnimations, ...props }) => {
+const toComplexAnimation = (animation: CssAnimation): ComplexAnimation =>
+  animation &&
+  (typeof animation === 'string' ? { className: animation } : animation)
+
+export function resolveAnimation (perPatternAnimations: PerPatternAnimationConfigs | PerPatternAnimationCallback, counterPattern: string, transitionDetails: RouteTransitionDetails) {
+  if (!perPatternAnimations) {
+    return null
+  }
+  if (typeof perPatternAnimations === 'function') {
+    return toComplexAnimation(perPatternAnimations(counterPattern, transitionDetails))
+  } else {
+    const entry =
+      perPatternAnimations &&
+      Object.entries(perPatternAnimations).find(([routeName]) => routeName === counterPattern || isRouteMatching(counterPattern, routeName))
+
+    return toComplexAnimation(entry && entry[1])
+  }
+}
+
+const determineRouteAnimation = (
+  transitionDetails: RouteTransitionDetails,
+  defaultAnimations: DefaultAnimationsConfig,
+  whenLeavingTo: PerPatternAnimationConfigs | PerPatternAnimationCallback,
+  whenEnteringFrom: PerPatternAnimationConfigs | PerPatternAnimationCallback
+): ComplexAnimation => {
+  const { transitionTo, transitionFrom, transitionState, leaving, entering } = transitionDetails
+
+  const inTransition = leaving || entering
+  const defaultAnimation = defaultAnimations[transitionState as keyof DefaultAnimationsConfig]
+  if (!inTransition) {
+    return toComplexAnimation(defaultAnimation)
+  }
+
+  const perPatternAnimations =
+    leaving
+      ? whenLeavingTo
+      : whenEnteringFrom
+
+  const counterPattern =
+    leaving
+      ? transitionTo
+      : transitionFrom
+
+  const routeSpecificAnimation = resolveAnimation(perPatternAnimations, counterPattern, transitionDetails)
+  return routeSpecificAnimation || toComplexAnimation(defaultAnimation)
+}
+
+export const CssRouteAnimation: FunctionComponent<CssRouteAnimationProps> = memo((
+  {
+    element = 'div',
+    className,
+    startClassName,
+    defaultAnimations = {},
+    whenLeavingTo,
+    whenEnteringFrom,
+    ignoreTransitionEnd,
+    ...props
+  }) => {
   const domRef = useRef<HTMLElement>()
+  const lastAnimationPropertyName = useRef<string>()
 
   const transitionDetails$ = useTransitionDetails$()
 
   const updateClassNamesWhenNeeded = useCallback(
     (
-      { transitionTo, transitionFrom, transitionState }: RouteTransitionDetails,
+      transitionDetails: RouteTransitionDetails,
       triggerAnimation: boolean
     ) => {
-      const routeSpecificAnimations = perRouteAnimations &&
-        perRouteAnimations.find(config =>
-          isRouteMatching(transitionFrom, config.name, config.partial) ||
-          isRouteMatching(transitionTo, config.name, config.partial)
-        )
-      const mergedAnimations = { ...defaultAnimations, ...routeSpecificAnimations }
-      const dynamicClassName = mergedAnimations[transitionState as keyof CssAnimationConfig]
+      const {
+        className: dynamicClassName,
+        propertyName
+      } = determineRouteAnimation(transitionDetails, defaultAnimations, whenLeavingTo, whenEnteringFrom) || {}
 
-      const inTransition = transitionState !== RouteTransitionState.head && transitionState !== RouteTransitionState.stacked
+      lastAnimationPropertyName.current = propertyName
+
+      const inTransition = transitionDetails.leaving || transitionDetails.entering
       const expectedClasses = [
         className,
         dynamicClassName
@@ -63,7 +139,7 @@ export const CssRouteAnimation: FunctionComponent<CssRouteAnimationProps> = memo
         htmlElement.classList.add(startClassName)
       }
     },
-    [className, defaultAnimations, perRouteAnimations, startClassName]
+    [className, defaultAnimations, whenEnteringFrom, whenLeavingTo, startClassName]
   )
 
   useEffect(
@@ -83,8 +159,14 @@ export const CssRouteAnimation: FunctionComponent<CssRouteAnimationProps> = memo
     [updateClassNamesWhenNeeded, transitionDetails$]
   )
 
-  const handleTransitionEnd = useCallback(
-    () => {
+  const handleTransitionEnd: TransitionEventHandler = useCallback(
+    event => {
+      if (
+        domRef.current !== event.target ||
+        (lastAnimationPropertyName.current && event.propertyName !== lastAnimationPropertyName.current)
+      ) {
+        return
+      }
       const transitionDetails = transitionDetails$.getValue()
       if (transitionDetails.onTransitionEnded) {
         transitionDetails.onTransitionEnded()
@@ -94,5 +176,5 @@ export const CssRouteAnimation: FunctionComponent<CssRouteAnimationProps> = memo
   )
 
   const Element = element as any
-  return <Element ref={domRef} {...props} onTransitionEnd={handleTransitionEnd}/>
+  return <Element ref={domRef} {...props} onTransitionEnd={ignoreTransitionEnd ? null : handleTransitionEnd}/>
 })

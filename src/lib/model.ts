@@ -16,7 +16,8 @@ export interface RouteTransitionDetails {
   transitionState: RouteTransitionState
   transitionFrom: string
   transitionTo: string
-
+  leaving: boolean
+  entering: boolean
   onTransitionEnded (): void
 }
 
@@ -29,8 +30,7 @@ export interface RouteDefaultProps {
 }
 
 export interface RouteExternalProps extends RouteDefaultProps {
-  name: string
-  partial?: boolean
+  pattern: string
 }
 
 export type RouteProps = Partial<MountedRouteProps> & RouteExternalProps
