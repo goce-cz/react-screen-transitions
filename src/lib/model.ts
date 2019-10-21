@@ -41,9 +41,13 @@ export interface RouteState {
   [dataKey: string]: any
 }
 
+export type TransitionLifecycleHandler = (transitionFrom: string, transitionTo: string) => void
+
 export interface RouteSwitchSettings extends Partial<RouteDefaultProps> {
   timeout?: number
   children: Array<ReactElement<RouteProps>>
+  onAnimationStart?: TransitionLifecycleHandler
+  onAnimationComplete?: TransitionLifecycleHandler
 }
 
 export interface RouteSwitchProps extends RouteSwitchSettings {

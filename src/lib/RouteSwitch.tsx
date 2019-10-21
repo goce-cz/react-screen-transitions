@@ -128,7 +128,9 @@ export const RouteSwitch: FunctionComponent<RouteSwitchProps> = (
     children,
     routeState$,
     timeout = 6000,
-    keepMounted
+    keepMounted,
+    onAnimationStart,
+    onAnimationComplete
   }
 ) => {
   const [transitionInProgress, setTransitionInProgress] = useState(false)
@@ -156,6 +158,18 @@ export const RouteSwitch: FunctionComponent<RouteSwitchProps> = (
       }
     },
     [transitionInProgress, handleTransitionEnd, timeout]
+  )
+
+  useEffect(
+    () => {
+      if (activePattern && previousPattern) {
+        const handler = transitionInProgress ? onAnimationStart : onAnimationComplete
+        if (handler) {
+          handler(activePattern, previousPattern)
+        }
+      }
+    },
+    [transitionInProgress, activePattern, previousPattern]
   )
 
   return useMemo(

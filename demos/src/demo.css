@@ -25,6 +25,10 @@ code {
     right: 0;
 }
 
+.transitionInProgress {
+    pointer-events: none;
+}
+
 .container {
     position: relative;
     flex: 1;
