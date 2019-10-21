@@ -2,6 +2,7 @@
 /.idea
 
 /**/dist
+/**/.yalc
 
 yarn-debug.log*
 yarn-error.log*
