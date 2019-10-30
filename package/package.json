@@ -2,6 +2,7 @@
   "name": "react-screen-transitions",
   "version": "0.1.0",
   "dependencies": {
+    "react-flatten-children": "^1.0.0",
     "rxjs": "^6.5.3"
   },
   "peerDependencies": {

@@ -1550,6 +1550,11 @@ rc@^1.0.1, rc@^1.1.6, rc@^1.2.7:
     minimist "^1.2.0"
     strip-json-comments "~2.0.1"
 
+react-flatten-children@^1.0.0:
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/react-flatten-children/-/react-flatten-children-1.0.0.tgz#9f29e3a54aa0e990c2b3a7e572dec5e225d59432"
+  integrity sha512-BSKnBi7MJadvfTjE07xzJoBNhlKYY8FfQUJ1e5dlFh4lMZf3i1AcldP/9d2hBeEtFeYleHCU8nYTuSzrz3ZwsA==
+
 react-router5@>=7.0.0:
   version "7.1.0"
   resolved "https://registry.yarnpkg.com/react-router5/-/react-router5-7.1.0.tgz#e626505d3f4f0b766078d9a64d129e71055b01cd"

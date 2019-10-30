@@ -39,7 +39,7 @@ export type RouteProps = Partial<MountedRouteProps> & RouteExternalProps
 export type TransitionLifecycleHandler = (transitionFrom: string, transitionTo: string) => void
 
 export interface RouteSwitchSettings extends Partial<RouteDefaultProps> {
-  timeout?: number
+  timeout: number
   children: Array<ReactElement<RouteProps>>
   onAnimationStart?: TransitionLifecycleHandler
   onAnimationComplete?: TransitionLifecycleHandler

@@ -6,14 +6,14 @@ import React, {
   ReactNode
 } from 'react'
 import { RouteProps, RouteTransitionDetails, RouteTransitionState } from './model'
-import { useBehaviorSubject, TransitionDetailsContext, RouteStateContext, useTheSameObject } from './hooks'
+import { useBehaviorSubject, TransitionDetailsContext, RouteStateContext, useEqualObject } from './hooks'
 
 const ROUTE_SYMBOL = Symbol('route-definition')
 
 export const isValidRouteDefinition = (element: ReactNode): element is ReactElement<RouteProps> => !!(isValidElement(element) && element.type && (element.type as any)[ROUTE_SYMBOL])
 
 export const Route: FunctionComponent<RouteProps> = memo(({ transitionState, transitionFrom, transitionTo, onTransitionEnded, routeState, children }) => {
-    const transitionDetails = useTheSameObject(
+    const transitionDetails = useEqualObject(
       {
         transitionState,
         transitionFrom,

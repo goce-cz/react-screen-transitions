@@ -1,4 +1,5 @@
 import React, {
+  ComponentType, ElementType, forwardRef,
   FunctionComponent,
   HTMLAttributes,
   memo,
@@ -10,7 +11,7 @@ import React, {
 } from 'react'
 
 import { isRouteMatching } from './RouteSwitch'
-import { useTransitionDetails$ } from './hooks'
+import { useComposedRef, useTransitionDetails$ } from './hooks'
 import { RouteTransitionDetails } from './model'
 
 export interface ComplexAnimation {
@@ -36,7 +37,7 @@ export interface PerPatternAnimationConfigs {
 export type PerPatternAnimationCallback = (routePattern: string, transitionDetails: RouteTransitionDetails) => CssAnimation
 
 export interface CssRouteAnimationProps extends HTMLAttributes<HTMLElement> {
-  element?: keyof JSX.IntrinsicElements
+  element?: ElementType
   defaultAnimations: DefaultAnimationsConfig
   whenLeavingTo?: PerPatternAnimationConfigs | PerPatternAnimationCallback
   whenEnteringFrom?: PerPatternAnimationConfigs | PerPatternAnimationCallback
@@ -91,9 +92,9 @@ const determineRouteAnimation = (
   return routeSpecificAnimation || toComplexAnimation(defaultAnimation)
 }
 
-export const CssRouteAnimation: FunctionComponent<CssRouteAnimationProps> = memo((
+export const CssRouteAnimation: FunctionComponent<CssRouteAnimationProps> = memo(forwardRef<HTMLElement, CssRouteAnimationProps>((
   {
-    element = 'div',
+    element: Element = 'div',
     className,
     startClassName,
     defaultAnimations = {},
@@ -101,10 +102,12 @@ export const CssRouteAnimation: FunctionComponent<CssRouteAnimationProps> = memo
     whenEnteringFrom,
     ignoreTransitionEnd,
     ...props
-  }) => {
+  },
+  ref
+) => {
   const domRef = useRef<HTMLElement>()
   const lastAnimationPropertyName = useRef<string>()
-
+  const composedRef = useComposedRef<HTMLElement>(ref, domRef)
   const transitionDetails$ = useTransitionDetails$()
 
   const updateClassNamesWhenNeeded = useCallback(
@@ -175,6 +178,5 @@ export const CssRouteAnimation: FunctionComponent<CssRouteAnimationProps> = memo
     [transitionDetails$]
   )
 
-  const Element = element as any
-  return <Element ref={domRef} {...props} onTransitionEnd={ignoreTransitionEnd ? null : handleTransitionEnd}/>
-})
+  return <Element ref={composedRef} {...props} onTransitionEnd={ignoreTransitionEnd ? null : handleTransitionEnd}/>
+}))

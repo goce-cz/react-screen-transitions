@@ -8,7 +8,6 @@ import { useBehaviorSubject, useRouteState$ } from './hooks'
 
 export const Router5Switch: FunctionComponent<RouteSwitchSettings> = (props) => {
   const parentRouteState$ = useRouteState$()
-  console.log(useRouter)
   const router = useRouter()
   const router5State$ = useBehaviorSubject(router && router.getState())
   useEffect(

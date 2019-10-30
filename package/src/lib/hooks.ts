@@ -1,5 +1,6 @@
 import {
-  createContext,
+  Children,
+  createContext, ReactNode, Ref,
   RefObject,
   useCallback,
   useContext,
@@ -96,7 +97,7 @@ export function useTransitionDetails (): RouteTransitionDetails {
 
 type EqualityFunction<T> = (a: T, b: T) => boolean
 
-export function useTheSameObject<T> (object: T, equalityFnc: EqualityFunction<T>) {
+export function useEqualObject<T> (object: T, equalityFnc: EqualityFunction<T>) {
   const lastObject = useRef<T>()
   const prev = lastObject.current
   if (
@@ -117,4 +118,20 @@ export function useCapture<T> (value: T): RefObject<T> {
   const ref = useRef<T>()
   ref.current = value
   return ref
+}
+
+export function useComposedRef<T>(...refs: Array<Ref<T>>): Ref<T> {
+  return useCallback(
+    newValue => refs.forEach(ref => {
+      if (!ref) {
+        return
+      }
+      if (typeof ref === 'function') {
+        ref(newValue)
+      } else {
+        (ref as any).current = newValue
+      }
+    }),
+    refs
+  )
 }

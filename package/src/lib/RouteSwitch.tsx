@@ -1,7 +1,6 @@
 import React, {
-  Children,
   cloneElement,
-  FunctionComponent,
+  FunctionComponent, isValidElement,
   ReactElement,
   ReactNode,
   useCallback,
@@ -10,10 +9,13 @@ import React, {
   useRef,
   useState
 } from 'react'
-import { isValidRouteDefinition } from './Route'
+// @ts-ignore
+import flattenChildren from 'react-flatten-children'
 import { BehaviorSubject } from 'rxjs'
-import { RouteProps, RouteSwitchProps, RouteTransitionState } from './model'
 import { State } from 'router5'
+
+import { Route, isValidRouteDefinition } from './Route'
+import { RouteProps, RouteSwitchProps, RouteTransitionState } from './model'
 
 const getIdleState = (routeName: string, activeRouteName: string) => {
   if (routeName === activeRouteName) {
@@ -63,27 +65,20 @@ export const isRouteMatching = (test: string, pattern: string) => {
   return test === base || (partial && test.startsWith(`${base}.`))
 }
 
-const findMatchingPattern = (realRouteName: string, children: ReactNode) => {
-  const node = Children
-    .toArray(children)
-    .find(node => {
-      if (!isValidRouteDefinition(node)) {
-        throw new Error('<RouteSwitch> accepts only <Route> as children')
-      }
-
-      return isRouteMatching(realRouteName, node.props.pattern)
-    })
+const findMatchingPattern = (realRouteName: string, childArray: Array<ReactElement<RouteProps>>) => {
+  const node = childArray
+    .find(node => isRouteMatching(realRouteName, node.props.pattern))
   return node && (node as ReactElement<RouteProps>).props.pattern
 }
 
 function useCurrentRouteStatus(
   routeState$: BehaviorSubject<State>,
-  children: ReactNode,
+  childArray: Array<ReactElement<RouteProps>>,
   onToggleTransitionInProgress: (value: boolean) => void
 ): [string, string, Map<string, State>] {
   const [activePattern, setActivePattern] = useState<string>(() => {
     const routeState = routeState$.getValue()
-    return routeState && findMatchingPattern(routeState.name, children)
+    return routeState && findMatchingPattern(routeState.name, childArray)
   })
   const [previousPattern, setPreviousPattern] = useState<string>(null)
   const lastPatternNameRef = useRef<string>(activePattern)
@@ -96,7 +91,7 @@ function useCurrentRouteStatus(
           if(!routeState ) {
             return
           }
-          const pattern = findMatchingPattern(routeState.name, children)
+          const pattern = findMatchingPattern(routeState.name, childArray)
           if (!pattern) {
             setActivePattern(null)
             return
@@ -119,7 +114,7 @@ function useCurrentRouteStatus(
       })
       return () => subscription && subscription.unsubscribe()
     },
-    [routeState$, children, onToggleTransitionInProgress]
+    [routeState$, childArray, onToggleTransitionInProgress]
   )
 
   return [activePattern, previousPattern, dataMap]
@@ -127,18 +122,54 @@ function useCurrentRouteStatus(
 
 const isAncestorRoute = (ancestor: string, descendant: string) => descendant.startsWith(`${ancestor}.`)
 
+const nodeToStr = (node: ReactNode) => {
+  if (isValidElement(node)) {
+    if (typeof node.type === 'string') {
+      return `<${node.type}>`
+    } else {
+      const componentConstructor = (node.type as any)
+      return `<${componentConstructor.displayName || componentConstructor.name || 'Component'}>`
+    }
+  } else {
+    return `"${node}"`
+  }
+}
+
+const flattenRouteDefinitions = (children: ReactNode): Array<ReactElement<RouteProps>> => {
+  const flatChildren = (flattenChildren(children) as ReactNode[])
+  const invalidNode = flatChildren.find(node => !isValidElement(node) || node.type !== Route)
+  if (invalidNode) {
+    throw new Error(`<RouteSwitch> accepts only <Route> as children, found ${nodeToStr(invalidNode)}`)
+  }
+
+  const routes = flatChildren as Array<ReactElement<RouteProps>>
+  const usedPatterns = new Set<string>()
+  routes.forEach(route => {
+    if (!route.props.pattern) {
+      throw new Error(`missing 'pattern' attribute on <Route> element`)
+    }
+    if (usedPatterns.has(route.props.pattern)) {
+      throw new Error(`duplicate definition for <Route pattern="${route.props.pattern}">`)
+    }
+    usedPatterns.add(route.props.pattern)
+  })
+
+  return routes
+}
+
 export const RouteSwitch: FunctionComponent<RouteSwitchProps> = (
   {
     children,
     routeState$,
-    timeout = 6000,
+    timeout,
     keepMounted,
     onAnimationStart,
     onAnimationComplete
   }
 ) => {
   const [transitionInProgress, setTransitionInProgress] = useState(false)
-  const [activePattern, previousPattern, dataMap] = useCurrentRouteStatus(routeState$, children, setTransitionInProgress)
+  const childArray = useMemo(() => flattenRouteDefinitions(children), [children])
+  const [activePattern, previousPattern, dataMap] = useCurrentRouteStatus(routeState$, childArray, setTransitionInProgress)
 
   const timerRef = useRef<number>()
 
@@ -181,12 +212,11 @@ export const RouteSwitch: FunctionComponent<RouteSwitchProps> = (
       if (!activePattern) {
         return null
       }
-      const childrenArray = Children.toArray(children) as Array<ReactElement<RouteProps>>
       const defaults = { keepMounted }
 
       return (
         <>
-          {childrenArray
+          {childArray
             .map(element => ({
               element,
               props: { ...defaults, ...element.props },
@@ -226,6 +256,6 @@ export const RouteSwitch: FunctionComponent<RouteSwitchProps> = (
         </>
       )
     },
-    [dataMap, activePattern, children, previousPattern, transitionInProgress, keepMounted, handleTransitionEnd]
+    [dataMap, activePattern, childArray, previousPattern, transitionInProgress, keepMounted, handleTransitionEnd]
   )
 }
