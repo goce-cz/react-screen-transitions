@@ -21,6 +21,7 @@ export const Root: FunctionComponent<RootProps> = memo(({ onToggleAnimation }) =
         <Router5Switch
           onAnimationStart={handleTransition}
           onAnimationComplete={handleTransitionComplete}
+          timeout={5000}
         >
           <Route pattern='a'>
             <AnimatedScreen
@@ -40,6 +41,7 @@ export const Root: FunctionComponent<RootProps> = memo(({ onToggleAnimation }) =
             <AnimatedScreen className='flexColumn'>
               <div className='container'>
                 <Router5Switch
+                  timeout={5000}
                   onAnimationStart={handleTransition}
                   onAnimationComplete={handleTransitionComplete}
                 >
@@ -63,6 +65,7 @@ export const Root: FunctionComponent<RootProps> = memo(({ onToggleAnimation }) =
           >
             <div className='container'>
               <Router5Switch
+                timeout={5000}
                 onAnimationStart={handleTransition}
                 onAnimationComplete={handleTransitionComplete}
               >
